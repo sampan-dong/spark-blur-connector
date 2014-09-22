@@ -94,8 +94,13 @@ public class Consumer implements Serializable {
 
 		SparkConf conf = new SparkConf().setAppName("KafkaReceiver").set(
 				"spark.streaming.blockInterval", "200");
+		
+		//Path to Blur Libraries . Can be copied to each Node of Spark Cluster.
+		
 		conf.set("spark.executor.extraClassPath",
 				"/home/apache-blur-0.2.4/lib/*");
+		
+		// Used KryoSerializer for BlurMutate and Text.
 		conf.set("spark.serializer",
 				"org.apache.spark.serializer.KryoSerializer");
 
