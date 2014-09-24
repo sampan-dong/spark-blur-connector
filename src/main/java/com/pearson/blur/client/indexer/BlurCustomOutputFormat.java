@@ -6,6 +6,7 @@ import java.io.IOException;
 
 import org.apache.blur.mapreduce.lib.BlurMutate;
 import org.apache.blur.mapreduce.lib.BlurOutputFormat;
+import org.apache.blur.mapreduce.lib.GenericBlurRecordWriter;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Text;
