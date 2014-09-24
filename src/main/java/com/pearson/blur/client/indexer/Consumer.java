@@ -213,10 +213,17 @@ public class Consumer implements Serializable {
 
 						JobConf jobConf = new JobConf(conf);
 
-						jobConf.setNumReduceTasks(tableDescriptor.shardCount);
+						//jobConf.setNumReduceTasks(tableDescriptor.shardCount);
 						jobConf.setOutputKeyClass(Text.class);
 						jobConf.setOutputValueClass(BlurMutate.class);
+						
+						int reducerMultiplier = 3;
+						
+						conf.setInt("blur.output.reducer.multiplier", reducerMultiplier);
 
+						jobConf.setNumReduceTasks(tableDescriptor.getShardCount() * reducerMultiplier);
+					    
+					    
 						BlurMapReduceUtil.addAllJarsInBlurLib(conf);
 						BlurMapReduceUtil
 								.addDependencyJars(
