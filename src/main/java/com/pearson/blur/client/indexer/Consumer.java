@@ -238,9 +238,10 @@ public class Consumer implements Serializable {
 						 * Write the RDD to Blur Table
 						 */
 						
-						pRdd.saveAsNewAPIHadoopFile(tableUri, Text.class,
-								BlurMutate.class, BlurCustomOutputFormat.class,
-								jobConf);
+						if(pRdd.count() > 0)
+							pRdd.saveAsNewAPIHadoopFile(tableUri, Text.class,
+									BlurMutate.class, BlurCustomOutputFormat.class,
+									jobConf);
 
 						return null;
 					}
