@@ -10,6 +10,8 @@ import java.util.Properties;
 import org.apache.blur.manager.BlurPartitioner;
 import org.apache.blur.mapreduce.lib.BlurMapReduceUtil;
 import org.apache.blur.mapreduce.lib.BlurMutate;
+import org.apache.blur.mapreduce.lib.BlurOutputCommitter;
+import org.apache.blur.mapreduce.lib.BlurOutputFormat;
 import org.apache.blur.mapreduce.lib.DefaultBlurReducer;
 import org.apache.blur.thrift.generated.TableDescriptor;
 import org.apache.commons.cli.CommandLine;
@@ -86,7 +88,10 @@ public class Consumer implements Serializable {
 	private void run() {
 
 		String checkpointDirectory = "hdfs://10.252.5.113:9000/user/hadoop/spark";
-		int _partitionCount = 3;
+		
+		//number of partition for Kafka Topic
+		
+		int _partitionCount = 5;
 
 		List<JavaDStream<MessageAndMetadata>> streamsList = new ArrayList<JavaDStream<MessageAndMetadata>>(
 				_partitionCount);
@@ -94,12 +99,12 @@ public class Consumer implements Serializable {
 
 		SparkConf conf = new SparkConf().setAppName("KafkaReceiver").set(
 				"spark.streaming.blockInterval", "200");
-		
-		//Path to Blur Libraries . Can be copied to each Node of Spark Cluster.
-		
+
+		// Path to Blur Libraries . Can be copied to each Node of Spark Cluster.
+
 		conf.set("spark.executor.extraClassPath",
 				"/home/apache-blur-0.2.4/lib/*");
-		
+
 		// Used KryoSerializer for BlurMutate and Text.
 		conf.set("spark.serializer",
 				"org.apache.spark.serializer.KryoSerializer");
@@ -129,7 +134,7 @@ public class Consumer implements Serializable {
 			// Otherwise, just use the 1 stream
 			unionStreams = streamsList.get(0);
 		}
-		
+
 		/*
 		 * Generate JavaPairDStream
 		 */
@@ -142,17 +147,16 @@ public class Consumer implements Serializable {
 					public Tuple2<Text, BlurMutate> call(
 							MessageAndMetadata mmeta) {
 
-
 						/*
 						 * create the BlurMutate from MessageAndMetadata
 						 */
-						
+
 						String message = new String(mmeta.getPayload());
 						String keyStr = DigestUtils.shaHex(message);
 						Text key = new Text((keyStr).getBytes());
 						BlurMutate mutate = new BlurMutate(
 								BlurMutate.MUTATE_TYPE.REPLACE, keyStr, keyStr,
-								"revel");
+								"family");
 						mutate.addColumn("message", message);
 
 						return new Tuple2<Text, BlurMutate>(key, mutate);
@@ -170,17 +174,18 @@ public class Consumer implements Serializable {
 
 						TableDescriptor tableDescriptor = new TableDescriptor();
 						String tableUri = new Path(
-								"hdfs://10.252.5.113:9000/blur/tables/revel-raw")
+								"hdfs://10.252.5.113:9000/blur/tables/nrt")
 								.toString();
 						tableDescriptor.tableUri = tableUri;
 						tableDescriptor.cluster = "pearson";
-						tableDescriptor.name = "revel-raw";
+						tableDescriptor.name = "nrt";
 						tableDescriptor.shardCount = 9;
 						Configuration conf = new Configuration();
-						
+
 						/*
-						 * Partition RDD to match Blur Table Shard Count. Used Custom Partitioner to channel correct 
-						 * BlurMutate to correct Shard.
+						 * Partition RDD to match Blur Table Shard Count. Used
+						 * Custom Partitioner to channel correct BlurMutate to
+						 * correct Shard.
 						 */
 
 						final JavaPairRDD<Text, BlurMutate> pRdd = rdd
@@ -189,17 +194,16 @@ public class Consumer implements Serializable {
 												tableDescriptor.shardCount))
 								.persist(StorageLevel.MEMORY_ONLY_2());
 
-						
 						/*
 						 * Blur specific Configuration
 						 */
-						
-						BlurCustomOutputFormat.setIndexLocally(conf, false);
-						BlurCustomOutputFormat.setOptimizeInFlight(conf, false);
+
+						BlurOutputFormat.setIndexLocally(conf, false);
+						BlurOutputFormat.setOptimizeInFlight(conf, false);
 						conf.setClass("mapreduce.reduce.class",
 								DefaultBlurReducer.class, Reducer.class);
 						conf.setClass("mapreduce.outputformat.class",
-								BlurCustomOutputFormat.class,
+								BlurOutputFormat.class,
 								OutputFormat.class);
 						conf.setClass("mapreduce.partitioner.class",
 								BlurPartitioner.class, Partitioner.class);
@@ -208,22 +212,20 @@ public class Consumer implements Serializable {
 						conf.setInt("blur.output.max.document.buffer.size",
 								10000);
 
-						BlurCustomOutputFormat.setTableDescriptor(conf,
+						BlurOutputFormat.setTableDescriptor(conf,
 								tableDescriptor);
 
 						JobConf jobConf = new JobConf(conf);
 
-						//jobConf.setNumReduceTasks(tableDescriptor.shardCount);
+						jobConf.setNumReduceTasks(tableDescriptor.shardCount);
 						jobConf.setOutputKeyClass(Text.class);
 						jobConf.setOutputValueClass(BlurMutate.class);
-						
-						int reducerMultiplier = 3;
-						
-						conf.setInt("blur.output.reducer.multiplier", reducerMultiplier);
 
-						jobConf.setNumReduceTasks(tableDescriptor.getShardCount() * reducerMultiplier);
-					    
-					    
+						//int reducerMultiplier = 3;
+
+						//conf.setInt("blur.output.reducer.multiplier",
+						//		reducerMultiplier);
+
 						BlurMapReduceUtil.addAllJarsInBlurLib(conf);
 						BlurMapReduceUtil
 								.addDependencyJars(
@@ -232,16 +234,15 @@ public class Consumer implements Serializable {
 										org.apache.lucene.codecs.lucene42.Lucene42Codec.class,
 										jobConf.getOutputKeyClass(),
 										jobConf.getOutputValueClass());
-						
-						
+
 						/*
 						 * Write the RDD to Blur Table
 						 */
-						
-						if(pRdd.count() > 0)
+
+						if (pRdd.count() > 0)
 							pRdd.saveAsNewAPIHadoopFile(tableUri, Text.class,
-									BlurMutate.class, BlurCustomOutputFormat.class,
-									jobConf);
+									BlurMutate.class,
+									BlurOutputFormat.class, jobConf);
 
 						return null;
 					}
