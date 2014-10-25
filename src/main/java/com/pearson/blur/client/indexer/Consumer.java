@@ -60,6 +60,10 @@ import consumer.kafka.KafkaConfig;
 import consumer.kafka.MessageAndMetadata;
 import consumer.kafka.client.KafkaReceiver;
 
+/*
+ * This Consumer uses Spark RDD saveAsNewAPIHadoopFile API to index BlurMutate
+ */
+
 public class Consumer implements Serializable {
 
 	private static final long serialVersionUID = 4332618245650072140L;
