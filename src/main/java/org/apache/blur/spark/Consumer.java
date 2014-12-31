@@ -234,6 +234,8 @@ public class Consumer implements Serializable {
 								BlurOutputCommitter.class.getName());
 						conf.setInt("blur.output.max.document.buffer.size",
 								10000);
+						conf.set("blur.output.path", tableDescriptor.getTableUri());
+
 
 						BlurOutputFormat.setTableDescriptor(conf,
 								tableDescriptor);
